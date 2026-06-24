@@ -30,7 +30,7 @@ jobs:
         with: { python-version: "3.13" }
 
       - name: Install pnpm
-        run: npm i -g pnpm
+        run: corepack enable
 
       - name: Build frontend
         run: |
@@ -109,7 +109,7 @@ jobs:
             libxcb-cursor0
 
       - name: Install pnpm
-        run: npm i -g pnpm
+        run: corepack enable
 
       - name: Build frontend
         run: |
@@ -154,11 +154,12 @@ jobs:
         with: { python-version: "3.13" }
 
       - name: Install pnpm
-        run: npm i -g pnpm
+        run: corepack enable
 
       - name: Build frontend
         run: |
           cd web
+          pnpm config set onlyBuiltDependencies "[""esbuild""]" --location project
           pnpm install --frozen-lockfile
           pnpm build
 
