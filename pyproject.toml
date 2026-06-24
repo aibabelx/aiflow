@@ -1,0 +1,20 @@
+[project]
+name = "aiflow"
+version = "0.1.0"
+description = "AI workflow orchestration desktop app"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.138.0",
+    "uvicorn[standard]>=0.38",
+    "pywebview>=5.0",
+    "aiofiles>=25.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pyinstaller>=6.0",
+]
+
+[project.scripts]
+aiflow = "src.desktop.launcher:main"
+aiflow-server = "src.main:run_server"

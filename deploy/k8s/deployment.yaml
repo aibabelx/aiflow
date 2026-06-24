@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aiflow
+  labels:
+    app: aiflow
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aiflow
+  template:
+    metadata:
+      labels:
+        app: aiflow
+    spec:
+      containers:
+        - name: aiflow
+          image: aiflow-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: AIFLOW_LOG_LEVEL
+              value: "info"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aiflow
+spec:
+  selector:
+    app: aiflow
+  ports:
+    - port: 80
+      targetPort: 8000
+  type: ClusterIP

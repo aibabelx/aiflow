@@ -1,0 +1,19 @@
+.vscode
+.idea
+.DS_Store
+.venv
+logs
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Frontend
+web/node_modules
+web/dist
+
+# Build output
+dist
+build
+*.spec.bak

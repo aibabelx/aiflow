@@ -1,0 +1,203 @@
+name: Build AIFlow
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================
+  # macOS — .app bundle + .dmg
+  # ============================================================
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+
+      - name: Install pnpm
+        run: npm i -g pnpm
+
+      - name: Build frontend
+        run: |
+          cd web
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Install Python deps
+        run: pip install uv && uv pip install --system fastapi uvicorn[standard] pywebview aiofiles pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller aiflow.spec --clean --noconfirm
+
+      - name: Package macOS .app + .dmg
+        run: |
+          VERSION=$(python -c "from src import __version__; print(__version__)")
+          APP="dist/AIFlow.app"
+          rm -rf "$APP"
+          mkdir -p "$APP/Contents/MacOS"
+          mkdir -p "$APP/Contents/Resources"
+          cp dist/AIFlow "$APP/Contents/MacOS/"
+
+          cat > "$APP/Contents/Info.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key><string>AIFlow</string>
+              <key>CFBundleName</key><string>AIFlow</string>
+              <key>CFBundleDisplayName</key><string>AIFlow</string>
+              <key>CFBundleVersion</key><string>${VERSION}</string>
+              <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+              <key>CFBundlePackageType</key><string>APPL</string>
+              <key>CFBundleIdentifier</key><string>com.aiflow.desktop</string>
+              <key>LSMinimumSystemVersion</key><string>12.0</string>
+              <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          EOF
+
+          DMG="dist/AIFlow-${VERSION}-macOS-arm64.dmg"
+          hdiutil create -volname AIFlow -srcfolder "$APP" -ov -format UDZO "$DMG"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
+        id: package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIFlow-macOS-arm64
+          path: |
+            dist/AIFlow.app/**
+            dist/AIFlow-*.dmg
+          retention-days: 30
+
+  # ============================================================
+  # Linux — AppImage + tar.gz
+  # ============================================================
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+
+      - name: Install system deps (GTK + WebKit for webview)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libxcb-cursor0
+
+      - name: Install pnpm
+        run: npm i -g pnpm
+
+      - name: Build frontend
+        run: |
+          cd web
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Install Python deps
+        run: pip install uv && uv pip install --system fastapi uvicorn[standard] pywebview aiofiles pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller aiflow.spec --clean --noconfirm
+
+      - name: Package Linux
+        run: |
+          VERSION=$(python -c "from src import __version__; print(__version__)")
+          ARCH=$(uname -m)
+          TARBALL="dist/AIFlow-${VERSION}-linux-${ARCH}.tar.gz"
+          tar -czf "$TARBALL" -C dist AIFlow
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+        id: package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIFlow-linux-x86_64
+          path: dist/AIFlow-*.tar.gz
+          retention-days: 30
+
+  # ============================================================
+  # Windows — .exe + zip
+  # ============================================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+
+      - name: Install pnpm
+        run: npm i -g pnpm
+
+      - name: Build frontend
+        run: |
+          cd web
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Install Python deps
+        run: pip install uv && uv pip install --system fastapi uvicorn[standard] pywebview aiofiles pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller aiflow.spec --clean --noconfirm
+
+      - name: Package Windows
+        run: |
+          $VERSION = python -c "from src import __version__; print(__version__)"
+          $ZIP = "dist/AIFlow-${VERSION}-windows-amd64.zip"
+          Compress-Archive -Path dist/AIFlow.exe -DestinationPath $ZIP
+          echo "version=$VERSION" >> $env:GITHUB_OUTPUT
+          echo "zip=$ZIP" >> $env:GITHUB_OUTPUT
+        id: package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIFlow-windows-amd64
+          path: dist/AIFlow-*.zip
+          retention-days: 30
+
+  # ============================================================
+  # Release summary (optional — on tag push)
+  # ============================================================
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
