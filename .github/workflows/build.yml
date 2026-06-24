@@ -71,6 +71,9 @@ jobs:
           </plist>
           EOF
 
+          # Ad-hoc code sign to avoid "damaged app" warning
+          codesign --force --deep --sign - "$APP"
+
           DMG="dist/AIFlow-${VERSION}-macOS-arm64.dmg"
           hdiutil create -volname AIFlow -srcfolder "$APP" -ov -format UDZO "$DMG"
 
