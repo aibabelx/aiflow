@@ -12,17 +12,23 @@ export type TranslationKeys = typeof en;
 
 // Get system language
 export function getSystemLanguage(): Language {
-  if (typeof navigator === 'undefined') return 'en-US';
+  if (typeof navigator === 'undefined') return 'zh-CN';
 
   const lang =
     navigator.language ||
     (navigator as { userLanguage?: string }).userLanguage ||
-    'en-US';
+    'zh-CN';
 
-  // Check if Chinese
-  if (lang.startsWith('zh')) {
-    return 'zh-CN';
-  }
-
+  if (lang.startsWith('zh')) return 'zh-CN';
   return 'en-US';
+}
+
+export function getDefaultLanguage(): Language {
+  try {
+    const saved = localStorage.getItem('app-language');
+    if (saved === 'en-US' || saved === 'zh-CN') return saved;
+  } catch {
+    // ignore
+  }
+  return getSystemLanguage();
 }

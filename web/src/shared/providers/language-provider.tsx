@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  getSystemLanguage,
+  getDefaultLanguage,
   translations,
   type Language,
   type TranslationKeys,
@@ -28,15 +28,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 );
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    try {
-      const saved = localStorage.getItem('app-language');
-      if (saved === 'en-US' || saved === 'zh-CN') return saved;
-    } catch {
-      // ignore
-    }
-    return getSystemLanguage();
-  });
+  const [language, setLanguageState] = useState<Language>(getDefaultLanguage);
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
