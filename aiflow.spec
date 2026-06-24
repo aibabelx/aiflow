@@ -1,17 +1,10 @@
 import sys
 from pathlib import Path
 
-if sys.platform == "darwin":
-    GUI_LIBS = []
-elif sys.platform == "win32":
-    GUI_LIBS = []
-else:
-    GUI_LIBS = ["libgtk-3.so.0", "libwebkit2gtk-4.1.so.0"]
-
 a = Analysis(
     ["src/desktop/launcher.py"],
     pathex=[],
-    binaries=GUI_LIBS,
+    binaries=[],
     datas=[
         ("web/dist", "web/dist"),
     ],
